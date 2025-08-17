@@ -1,38 +1,51 @@
 import type { CoreMessage } from "ai";
 import {
   createAI,
+  experimental_createMCPClient,
   getMutableAIState,
   streamUI,
-  experimental_createMCPClient,
 } from "ai/rsc";
 import "server-only";
 import { z } from "zod";
 
-import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { google } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
 import { mistral } from "@ai-sdk/mistral";
-import { createDeepSeek } from '@ai-sdk/deepseek';
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { openai } from "@ai-sdk/openai";
 import {
   SSEClientTransport,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/sdk/client";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
-import { WeatherCard } from "./weather";
+import { getItem } from "@/lib/async-storage";
 import { unstable_headers } from "expo-router/rsc/headers";
 import { getPlacesInfo } from "./map/googleapis-maps";
 import { MapCard, MapSkeleton } from "./map/map-card";
 import MarkdownText from "./markdown-text";
 import { MoviesCard, MoviesSkeleton } from "./movies/movie-card";
+import { WeatherCard } from "./weather";
 import { getWeatherAsync } from "./weather-data";
 
 const PROVIDER_KEY = "ai_provider";
 const HTTP_URL_KEY = "mcp_http_url";
 const SSE_URL_KEY = "mcp_sse_url";
+const getApiKeyStoreKey = (provider: string) => `${provider.toLowerCase()}_api_key`;
 
 const getApiKey = async (providerName: string): Promise<string | null> => {
+  // First try to get from AsyncStorage (user settings)
+  try {
+    const userApiKey = await getItem(getApiKeyStoreKey(providerName));
+    if (userApiKey && userApiKey.trim()) {
+      return userApiKey.trim();
+    }
+  } catch (error) {
+    console.warn(`Failed to get API key from storage for ${providerName}:`, error);
+  }
+
+  // Fallback to environment variables
   const envVarMap: Record<string, string> = {
     OpenAI: "OPENAI_API_KEY",
     Google: "GEMINI_API_KEY",
@@ -51,34 +64,76 @@ const getApiKey = async (providerName: string): Promise<string | null> => {
   return null;
 };
 
+const getUserProvider = async (): Promise<string | null> => {
+  try {
+    return await getItem(PROVIDER_KEY);
+  } catch (error) {
+    console.warn("Failed to get provider from storage:", error);
+    return null;
+  }
+};
+
+const getMcpUrls = async (): Promise<{ httpUrl?: string; sseUrl?: string }> => {
+  try {
+    const [httpUrl, sseUrl] = await Promise.all([
+      getItem(HTTP_URL_KEY),
+      getItem(SSE_URL_KEY)
+    ]);
+    return {
+      httpUrl: httpUrl || undefined,
+      sseUrl: sseUrl || undefined
+    };
+  } catch (error) {
+    console.warn("Failed to get MCP URLs from storage:", error);
+    return {};
+  }
+};
+
 async function getProvider(modelId?: string, providerName?: string, apiKey?: string) {
   const provider = providerName || "OpenAI";
   const key = apiKey || await getApiKey(provider);
 
   if (!key) {
     throw new Error(
-      `API key for provider ${provider} is required. Please set it in the settings or as an environment variable.`
+      `API key for provider ${provider} is required. Please configure it in Settings → AI Provider or set the corresponding environment variable.`
     );
   }
 
+  console.log(`Using provider: ${provider} with model: ${modelId || 'default'}`);
+
   switch (provider) {
     case "Anthropic":
-      return anthropic(modelId || "claude-3-haiku-20240307", { apiKey: key });
+      return anthropic({
+        apiKey: key,
+      })(modelId || "claude-3-haiku-20240307");
     case "Google":
-      return google(modelId || "models/gemini-pro", { apiKey: key });
+      return google({
+        apiKey: key,
+      })(modelId || "models/gemini-pro");
     case "Groq":
-      return groq(modelId || "llama3-8b-8192", { apiKey: key });
+      return groq({
+        apiKey: key,
+      })(modelId || "llama3-8b-8192");
     case "Mistral":
-      return mistral(modelId || "open-mistral-7b", { apiKey: key });
+      return mistral({
+        apiKey: key,
+      })(modelId || "open-mistral-7b");
     case "OpenRouter":
-      const openrouter = createOpenRouter({ apiKey: key });
+      const openrouter = createOpenRouter({
+        apiKey: key,
+        baseURL: "https://openrouter.ai/api/v1"
+      });
       return openrouter(modelId || "google/gemini-flash-1.5");
     case "DeepSeek":
-      const deepseek = createDeepSeek({ apiKey: key });
-      return deepseek(modelId || "deepseek/deepseek-coder");
+      const deepseek = createDeepSeek({
+        apiKey: key,
+      });
+      return deepseek(modelId || "deepseek-chat");
     case "OpenAI":
     default:
-      return openai(modelId || "gpt-4o-mini-2024-07-18", { apiKey: key });
+      return openai({
+        apiKey: key,
+      })(modelId || "gpt-4o-mini-2024-07-18");
   }
 }
 
@@ -100,29 +155,45 @@ export async function onSubmit(message: string, modelId?: string, providerName?:
   });
 
   const headers = await unstable_headers();
-  const model = await getProvider(modelId, providerName, apiKey);
+
+  // Get user settings if not provided as parameters
+  const userProvider = providerName || await getUserProvider();
+  const userApiKey = apiKey || (userProvider ? await getApiKey(userProvider) : null);
+  const mcpUrls = await getMcpUrls();
+  const finalHttpUrl = httpUrl || mcpUrls.httpUrl;
+  const finalSseUrl = sseUrl || mcpUrls.sseUrl;
+
+  const model = await getProvider(modelId, userProvider, userApiKey);
 
   const mcpClients = [];
   let mcpTools = {};
 
-  if (httpUrl) {
-    const httpTransport = new StreamableHTTPClientTransport(new URL(httpUrl));
-    const httpClient = await experimental_createMCPClient({
-      transport: httpTransport,
-    });
-    mcpClients.push(httpClient);
-    const httpTools = await httpClient.tools();
-    mcpTools = { ...mcpTools, ...httpTools };
+  if (finalHttpUrl) {
+    try {
+      const httpTransport = new StreamableHTTPClientTransport(new URL(finalHttpUrl));
+      const httpClient = await experimental_createMCPClient({
+        transport: httpTransport,
+      });
+      mcpClients.push(httpClient);
+      const httpTools = await httpClient.tools();
+      mcpTools = { ...mcpTools, ...httpTools };
+    } catch (error) {
+      console.warn("Failed to connect to HTTP MCP server:", error);
+    }
   }
 
-  if (sseUrl) {
-    const sseTransport = new SSEClientTransport(new URL(sseUrl));
-    const sseClient = await experimental_createMCPClient({
-      transport: sseTransport,
-    });
-    mcpClients.push(sseClient);
-    const sseTools = await sseClient.tools();
-    mcpTools = { ...mcpTools, ...sseTools };
+  if (finalSseUrl) {
+    try {
+      const sseTransport = new SSEClientTransport(new URL(finalSseUrl));
+      const sseClient = await experimental_createMCPClient({
+        transport: sseTransport,
+      });
+      mcpClients.push(sseClient);
+      const sseTools = await sseClient.tools();
+      mcpTools = { ...mcpTools, ...sseTools };
+    } catch (error) {
+      console.warn("Failed to connect to SSE MCP server:", error);
+    }
   }
 
   const tools: Record<string, any> = { ...mcpTools };
@@ -148,7 +219,7 @@ export async function onSubmit(message: string, modelId?: string, providerName?:
     };
   }
 
-  const result = await streamUI({
+  const result = streamUI({
     model,
     messages: [
       {

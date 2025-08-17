@@ -1,7 +1,7 @@
 "use client";
 
 import { useActions, useAIState, useUIState } from "ai/rsc";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { View } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,7 +20,6 @@ import { tw } from "@/util/tw";
 import { AnimatedLogo } from "./animated-logo";
 import { ChatContainer } from "./chat-container";
 import ModelSelector from "./model-selector";
-import { getItem } from "@/lib/async-storage";
 
 const HEADER_HEIGHT = 0;
 
@@ -108,49 +107,17 @@ function ChatToolbar() {
   const [messages, setMessages] = useUIState<typeof AI>();
   const { onSubmit } = useActions<typeof AI>();
   const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
-  const [providerData, setProviderData] = React.useState<{
-    providerName: string | null;
-    apiKey: string | null;
-    httpUrl: string | null;
-    sseUrl: string | null;
-  }>({
-    providerName: null,
-    apiKey: null,
-    httpUrl: null,
-    sseUrl: null,
-  });
-
-  useEffect(() => {
-    const loadProviderData = async () => {
-      try {
-        const providerName = await getItem("ai_provider");
-        const apiKey = providerName ? await getItem(`${providerName.toLowerCase()}_api_key`) : null;
-        const httpUrl = await getItem("mcp_http_url");
-        const sseUrl = await getItem("mcp_sse_url");
-        
-        setProviderData({
-          providerName,
-          apiKey,
-          httpUrl,
-          sseUrl,
-        });
-      } catch (error) {
-        console.error("Failed to load provider data:", error);
-      }
-    };
-
-    loadProviderData();
-  }, []);
 
   const handleSubmit = async (message: string) => {
-    return onSubmit(
-      message, 
-      selectedModel ?? undefined,
-      providerData.providerName ?? undefined,
-      providerData.apiKey ?? undefined,
-      providerData.httpUrl ?? undefined,
-      providerData.sseUrl ?? undefined
-    );
+    // The onSubmit function in ai-context.tsx now automatically reads
+    // provider, API key, and MCP settings from AsyncStorage
+    return onSubmit(message, selectedModel ?? undefined);
+  };
+
+  const handleRefresh = () => {
+    // This can be used to trigger a refresh of available providers
+    // when the user returns from settings
+    console.log("Refreshing model selector...");
   };
 
   return (
@@ -162,6 +129,7 @@ function ChatToolbar() {
       <ModelSelector
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
+        onRefresh={handleRefresh}
       />
     </ChatToolbarInner>
   );
