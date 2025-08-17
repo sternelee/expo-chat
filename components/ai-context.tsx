@@ -7,7 +7,7 @@ import {
 } from "ai/rsc";
 import "server-only";
 import { z } from "zod";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -34,7 +34,7 @@ const SSE_URL_KEY = "mcp_sse_url";
 
 const getApiKey = async (providerName: string): Promise<string | null> => {
   const secureStoreKey = `${providerName.toLowerCase()}_api_key`;
-  let apiKey = await SecureStore.getItemAsync(secureStoreKey);
+  let apiKey = await AsyncStorage.getItem(secureStoreKey);
   if (apiKey) return apiKey;
 
   const envVarMap: Record<string, string> = {
@@ -57,7 +57,7 @@ const getApiKey = async (providerName: string): Promise<string | null> => {
 
 async function getProvider(modelId?: string) {
   const providerName =
-    (await SecureStore.getItemAsync(PROVIDER_KEY)) || "OpenAI";
+    (await AsyncStorage.getItem(PROVIDER_KEY)) || "OpenAI";
   const apiKey = await getApiKey(providerName);
 
   if (!apiKey) {
@@ -107,8 +107,8 @@ export async function onSubmit(message: string, modelId?: string) {
   const headers = await unstable_headers();
   const model = await getProvider(modelId);
 
-  const httpUrl = await SecureStore.getItemAsync(HTTP_URL_KEY);
-  const sseUrl = await SecureStore.getItemAsync(SSE_URL_KEY);
+  const httpUrl = await AsyncStorage.getItem(HTTP_URL_KEY);
+  const sseUrl = await AsyncStorage.getItem(SSE_URL_KEY);
 
   const mcpClients = [];
   let mcpTools = {};

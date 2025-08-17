@@ -1,24 +1,21 @@
-// import { Stack as NativeStack } from "expo-router";
-import { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import { Stack as NativeStack } from "expo-router";
 import React from "react";
-
-// Better transitions on web, no changes on native.
-import NativeStack from "@/components/layout/modalNavigator";
 
 // These are the default stack options for iOS, they disable on other platforms.
 const DEFAULT_STACK_HEADER: NativeStackNavigationOptions =
   process.env.EXPO_OS !== "ios"
     ? {}
     : {
-        headerTransparent: true,
-        headerBlurEffect: "systemChromeMaterial",
-        headerShadowVisible: true,
-        headerLargeTitleShadowVisible: false,
-        headerLargeStyle: {
-          backgroundColor: "transparent",
-        },
-        headerLargeTitle: false,
-      };
+      headerTransparent: true,
+      headerBlurEffect: "systemChromeMaterial",
+      headerShadowVisible: true,
+      headerLargeTitleShadowVisible: false,
+      headerLargeStyle: {
+        backgroundColor: "transparent",
+      },
+      headerLargeTitle: false,
+    };
 
 /** Create a bottom sheet on iOS with extra snap points (`sheetAllowedDetents`) */
 export const BOTTOM_SHEET: NativeStackNavigationOptions = {
@@ -28,23 +25,24 @@ export const BOTTOM_SHEET: NativeStackNavigationOptions = {
   animation: "slide_from_bottom",
   sheetGrabberVisible: true,
   sheetInitialDetentIndex: 0,
-  sheetAllowedDetents: [0.5, 1.0],
+  sheetAllowedDetents: ["medium", "large"],
 };
 
 export default function Stack({
   screenOptions,
   children,
   ...props
-}: React.ComponentProps<typeof NativeStack>) {
+}: any) {
   const processedChildren = React.Children.map(children, (child) => {
     if (React.isValidElement(child)) {
-      const { sheet, ...props } = child.props;
-      if (sheet) {
+      const childProps = child.props as any;
+      if (childProps.sheet) {
+        const { sheet, ...restProps } = childProps;
         return React.cloneElement(child, {
-          ...props,
+          ...restProps,
           options: {
             ...BOTTOM_SHEET,
-            ...props.options,
+            ...restProps.options,
           },
         });
       }
@@ -64,9 +62,4 @@ export default function Stack({
   );
 }
 
-Stack.Screen = NativeStack.Screen as React.FC<
-  React.ComponentProps<typeof NativeStack.Screen> & {
-    /** Make the sheet open as a bottom sheet with default options on iOS. */
-    sheet?: boolean;
-  }
->;
+Stack.Screen = NativeStack.Screen as any;

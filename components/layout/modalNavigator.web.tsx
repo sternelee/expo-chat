@@ -22,11 +22,11 @@ import * as AC from "@bacons/apple-colors";
 /** Extend NativeStackNavigationOptions with extra sheet/detent props */
 type MyModalStackNavigationOptions = NativeStackNavigationOptions & {
   presentation?:
-    | "modal"
-    | "formSheet"
-    | "containedModal"
-    | "card"
-    | "fullScreenModal";
+  | "modal"
+  | "formSheet"
+  | "containedModal"
+  | "card"
+  | "fullScreenModal";
   /**
    * If you want to mimic iOS sheet detents on native (iOS 16+ w/ react-native-screens),
    * you might do something like:

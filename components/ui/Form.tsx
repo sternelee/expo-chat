@@ -12,6 +12,8 @@ import {
   StyleProp,
   StyleSheet,
   TextProps,
+  TextInput,
+  TextInputProps,
   TextStyle,
   TouchableHighlight,
   View,
@@ -594,3 +596,21 @@ function extractStyle(styleProp: any, key: string) {
   }
   return null;
 }
+
+export const Input = (props: TextInputProps) => {
+  return (
+    <TextInput
+      style={{
+        backgroundColor: AppleColors.secondarySystemGroupedBackground,
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        color: AppleColors.label,
+        borderWidth: 1,
+        borderColor: AppleColors.separator,
+      }}
+      placeholderTextColor={AppleColors.tertiaryLabel}
+      {...props}
+    />
+  );
+};

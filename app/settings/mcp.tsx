@@ -1,7 +1,7 @@
 import * as Form from "@/components/ui/Form";
 import { useEffect, useState } from "react";
 import { Button } from "react-native";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const HTTP_URL_KEY = "mcp_http_url";
 const SSE_URL_KEY = "mcp_sse_url";
@@ -12,11 +12,11 @@ export default function McpSettings() {
 
   useEffect(() => {
     const loadSettings = async () => {
-      const storedHttpUrl = await SecureStore.getItemAsync(HTTP_URL_KEY);
+      const storedHttpUrl = await AsyncStorage.getItem(HTTP_URL_KEY);
       if (storedHttpUrl) {
         setHttpUrl(storedHttpUrl);
       }
-      const storedSseUrl = await SecureStore.getItemAsync(SSE_URL_KEY);
+      const storedSseUrl = await AsyncStorage.getItem(SSE_URL_KEY);
       if (storedSseUrl) {
         setSseUrl(storedSseUrl);
       }
@@ -25,8 +25,8 @@ export default function McpSettings() {
   }, []);
 
   const handleSave = async () => {
-    await SecureStore.setItemAsync(HTTP_URL_KEY, httpUrl);
-    await SecureStore.setItemAsync(SSE_URL_KEY, sseUrl);
+    await AsyncStorage.setItem(HTTP_URL_KEY, httpUrl);
+    await AsyncStorage.setItem(SSE_URL_KEY, sseUrl);
     alert("MCP settings saved!");
   };
 
