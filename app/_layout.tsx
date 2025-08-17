@@ -17,14 +17,13 @@ export { ErrorBoundary } from "expo-router";
 
 export default function Layout() {
   return (
-    <ThemeProvider>
-      <Stack
-        screenOptions={{
-          title: "Expo AI",
-        }}
-      >
-        <Stack.Screen
-          name="index"
+    <Stack
+      screenOptions={{
+        title: "Expo AI",
+      }}
+    >
+      <Stack.Screen
+        name="index"
           options={{
             headerLargeStyle: {
               backgroundColor: AC.systemGroupedBackground,
@@ -122,6 +121,5 @@ export default function Layout() {
           }}
         />
       </Stack>
-    </ThemeProvider>
   );
 }
