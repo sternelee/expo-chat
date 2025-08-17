@@ -19,6 +19,7 @@ import { nanoid } from "@/util/nanoid";
 import { tw } from "@/util/tw";
 import { AnimatedLogo } from "./animated-logo";
 import { ChatContainer } from "./chat-container";
+import ModelSelector from "./model-selector";
 
 const HEADER_HEIGHT = 0;
 
@@ -105,12 +106,22 @@ export function ChatUI() {
 function ChatToolbar() {
   const [messages, setMessages] = useUIState<typeof AI>();
   const { onSubmit } = useActions<typeof AI>();
+  const [selectedModel, setSelectedModel] = React.useState<string | null>(null);
+
+  const handleSubmit = async (message: string) => {
+    return onSubmit(message, selectedModel ?? undefined);
+  };
 
   return (
     <ChatToolbarInner
       messages={messages}
       setMessages={setMessages}
-      onSubmit={onSubmit}
-    />
+      onSubmit={handleSubmit}
+    >
+      <ModelSelector
+        selectedModel={selectedModel}
+        onSelectModel={setSelectedModel}
+      />
+    </ChatToolbarInner>
   );
 }

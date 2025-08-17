@@ -30,8 +30,9 @@ const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 interface ChatToolbarInnerProps {
   messages: ReturnType<typeof useUIState<typeof AI>>[0];
   setMessages: ReturnType<typeof useUIState<typeof AI>>[1];
-  onSubmit: ReturnType<typeof useActions<typeof AI>>["onSubmit"];
+  onSubmit: (message: string) => Promise<any>;
   disabled?: boolean;
+  children?: React.ReactNode;
 }
 
 export function ChatToolbarInner({
@@ -39,6 +40,7 @@ export function ChatToolbarInner({
   setMessages,
   onSubmit,
   disabled = false,
+  children,
 }: ChatToolbarInnerProps) {
   const [inputValue, setInputValue] = useState("");
   const textInput = useRef<TextInput>(null);
@@ -154,6 +156,7 @@ export function ChatToolbarInner({
             tw`md:w-[768px] max-w-[768px] md:mx-auto`,
           ]}
         >
+          {children}
           <TextInput
             ref={textInput}
             onChangeText={setInputValue}

@@ -24,6 +24,11 @@ export default function DebugRoute() {
           bottom: 24,
         }}
       >
+        <Form.Section title="AI">
+          <Form.Link href="/settings/provider">Provider</Form.Link>
+          <Form.Link href="/settings/mcp">MCP</Form.Link>
+        </Form.Section>
+
         {process.env.EXPO_OS !== "web" && AppIcon?.isSupported && (
           <Form.Section title="Style">
             <Form.Link href="/settings/icon">App Icon</Form.Link>

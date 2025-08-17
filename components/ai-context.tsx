@@ -1,14 +1,26 @@
-// import { unstable_headers } from "expo-router/rsc/headers";
-
 import type { CoreMessage } from "ai";
-import { createAI, getMutableAIState, streamUI } from "ai/rsc";
+import {
+  createAI,
+  getMutableAIState,
+  streamUI,
+  experimental_createMCPClient,
+} from "ai/rsc";
 import "server-only";
 import { z } from "zod";
+import * as SecureStore from "expo-secure-store";
 
 import { openai } from "@ai-sdk/openai";
-import { WeatherCard } from "./weather";
+import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
+import { groq } from "@ai-sdk/groq";
+import { mistral } from "@ai-sdk/mistral";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import {
+  SSEClientTransport,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/sdk/client";
 
-// Skeleton and display components
+import { WeatherCard } from "./weather";
 import { unstable_headers } from "expo-router/rsc/headers";
 import { getPlacesInfo } from "./map/googleapis-maps";
 import { MapCard, MapSkeleton } from "./map/map-card";
@@ -16,11 +28,66 @@ import MarkdownText from "./markdown-text";
 import { MoviesCard, MoviesSkeleton } from "./movies/movie-card";
 import { getWeatherAsync } from "./weather-data";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is required");
+const PROVIDER_KEY = "ai_provider";
+const HTTP_URL_KEY = "mcp_http_url";
+const SSE_URL_KEY = "mcp_sse_url";
+
+const getApiKey = async (providerName: string): Promise<string | null> => {
+  const secureStoreKey = `${providerName.toLowerCase()}_api_key`;
+  let apiKey = await SecureStore.getItemAsync(secureStoreKey);
+  if (apiKey) return apiKey;
+
+  const envVarMap: Record<string, string> = {
+    OpenAI: "OPENAI_API_KEY",
+    Google: "GEMINI_API_KEY",
+    Anthropic: "ANTHROPIC_API_KEY",
+    Groq: "GROQ_API_KEY",
+    Mistral: "MISTRAL_API_KEY",
+    OpenRouter: "OPENROUTER_API_KEY",
+    DeepSeek: "OPENROUTER_API_KEY",
+  };
+
+  const envVar = envVarMap[providerName];
+  if (envVar && process.env[envVar]) {
+    return process.env[envVar];
+  }
+
+  return null;
+};
+
+async function getProvider(modelId?: string) {
+  const providerName =
+    (await SecureStore.getItemAsync(PROVIDER_KEY)) || "OpenAI";
+  const apiKey = await getApiKey(providerName);
+
+  if (!apiKey) {
+    throw new Error(
+      `API key for provider ${providerName} is required. Please set it in the settings or as an environment variable.`
+    );
+  }
+
+  switch (providerName) {
+    case "Anthropic":
+      return anthropic(modelId || "claude-3-haiku-20240307", { apiKey });
+    case "Google":
+      return google(modelId || "models/gemini-pro", { apiKey });
+    case "Groq":
+      return groq(modelId || "llama3-8b-8192", { apiKey });
+    case "Mistral":
+      return mistral(modelId || "open-mistral-7b", { apiKey });
+    case "OpenRouter":
+      const openrouter = createOpenRouter({ apiKey });
+      return openrouter(modelId || "google/gemini-flash-1.5");
+    case "DeepSeek":
+      const deepseek = createOpenRouter({ apiKey });
+      return deepseek(modelId || "deepseek/deepseek-coder");
+    case "OpenAI":
+    default:
+      return openai(modelId || "gpt-4o-mini-2024-07-18", { apiKey });
+  }
 }
 
-export async function onSubmit(message: string) {
+export async function onSubmit(message: string, modelId?: string) {
   "use server";
 
   const aiState = getMutableAIState();
@@ -37,12 +104,37 @@ export async function onSubmit(message: string) {
     ],
   });
 
-  //
   const headers = await unstable_headers();
+  const model = await getProvider(modelId);
 
-  const tools: Record<string, any> = {};
+  const httpUrl = await SecureStore.getItemAsync(HTTP_URL_KEY);
+  const sseUrl = await SecureStore.getItemAsync(SSE_URL_KEY);
 
-  // The map feature is native only for now.
+  const mcpClients = [];
+  let mcpTools = {};
+
+  if (httpUrl) {
+    const httpTransport = new StreamableHTTPClientTransport(new URL(httpUrl));
+    const httpClient = await experimental_createMCPClient({
+      transport: httpTransport,
+    });
+    mcpClients.push(httpClient);
+    const httpTools = await httpClient.tools();
+    mcpTools = { ...mcpTools, ...httpTools };
+  }
+
+  if (sseUrl) {
+    const sseTransport = new SSEClientTransport(new URL(sseUrl));
+    const sseClient = await experimental_createMCPClient({
+      transport: sseTransport,
+    });
+    mcpClients.push(sseClient);
+    const sseTools = await sseClient.tools();
+    mcpTools = { ...mcpTools, ...sseTools };
+  }
+
+  const tools: Record<string, any> = { ...mcpTools };
+
   if (process.env.EXPO_OS !== "web") {
     tools.get_points_of_interest = {
       description: "Get things to do for a point of interest or city",
@@ -57,24 +149,20 @@ export async function onSubmit(message: string) {
         .required(),
       async *generate({ poi }) {
         console.log("city", poi);
-        // Show a spinner on the client while we wait for the response.
         yield <MapSkeleton />;
-
         let pointsOfInterest = await getPlacesInfo(poi);
-
-        // Return the points of interest card to the client.
         return <MapCard city={poi} data={pointsOfInterest} />;
       },
     };
   }
 
   const result = await streamUI({
-    model: openai("gpt-4o-mini-2024-07-18"),
+    model,
     messages: [
       {
         role: "system",
         content: `\
-You are a helpful chatbot assistant. You can provide weather info and movie recommendations. 
+You are a helpful chatbot assistant. You can provide weather info and movie recommendations.
 You have the following tools available:
 - get_media: Lists or search movies and TV shows from TMDB.
 - get_weather: Gets the weather for a city.
@@ -108,7 +196,6 @@ User info:
       }
       return <MarkdownText done={done}>{content}</MarkdownText>;
     },
-    // Define the tools here:
     tools: {
       ...tools,
       get_media: {
@@ -141,7 +228,6 @@ User info:
           query,
         }) {
           yield <MoviesSkeleton />;
-
           let url: string;
           if (query) {
             url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${
@@ -150,7 +236,6 @@ User info:
           } else {
             url = `https://api.themoviedb.org/3/trending/${media_type}/${time_window}?api_key=${process.env.TMDB_API_KEY}`;
           }
-
           const response = await fetch(url);
           if (!response.ok) {
             throw new Error("Failed to fetch trending movies");
@@ -174,13 +259,21 @@ User info:
           .required(),
         async *generate({ city }) {
           yield <WeatherCard city={city} />;
-          // await new Promise((resolve) => setTimeout(resolve, 5000));
-
           const weatherInfo = await getWeatherAsync(city);
           console.log("weatherInfo", JSON.stringify(weatherInfo));
           return <WeatherCard city={city} data={weatherInfo} />;
         },
       },
+    },
+    onFinish: async () => {
+      for (const client of mcpClients) {
+        await client.close();
+      }
+    },
+    onError: async (error) => {
+      for (const client of mcpClients) {
+        await client.close();
+      }
     },
   });
 

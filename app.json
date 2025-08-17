@@ -8,12 +8,12 @@
     "icon": "./assets/icons/bouquet.png",
     "scheme": "expoai",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#000",
+    "backgroundColor": "#000000",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/icons/bouquet.png",
       "resizeMode": "cover",
-      "backgroundColor": "#000"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "appleTeamId": "QQ57RJ5UTD",
@@ -27,7 +27,9 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.app.bacon.expoai"]
+        "com.apple.security.application-groups": [
+          "group.app.bacon.expoai"
+        ]
       },
       "associatedDomains": [
         "applinks:exai.expo.app",
@@ -39,7 +41,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "app.bacon.expoai"
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +50,10 @@
     },
     "plugins": [
       "@bacons/apple-colors",
-      ["expo-router", {}],
+      [
+        "expo-router",
+        {}
+      ],
       "expo-font",
       [
         "expo-quick-actions/icon/plugin",
@@ -67,7 +73,9 @@
           "resizeMode": "cover",
           "backgroundColor": "#000"
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
