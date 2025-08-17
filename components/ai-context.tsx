@@ -13,6 +13,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { groq } from "@ai-sdk/groq";
 import { mistral } from "@ai-sdk/mistral";
+import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   SSEClientTransport,
@@ -39,7 +40,7 @@ const getApiKey = async (providerName: string): Promise<string | null> => {
     Groq: "GROQ_API_KEY",
     Mistral: "MISTRAL_API_KEY",
     OpenRouter: "OPENROUTER_API_KEY",
-    DeepSeek: "OPENROUTER_API_KEY",
+    DeepSeek: "DEEPSEEK_API_KEY",
   };
 
   const envVar = envVarMap[providerName];
@@ -73,7 +74,7 @@ async function getProvider(modelId?: string, providerName?: string, apiKey?: str
       const openrouter = createOpenRouter({ apiKey: key });
       return openrouter(modelId || "google/gemini-flash-1.5");
     case "DeepSeek":
-      const deepseek = createOpenRouter({ apiKey: key });
+      const deepseek = createDeepSeek({ apiKey: key });
       return deepseek(modelId || "deepseek/deepseek-coder");
     case "OpenAI":
     default:
@@ -221,9 +222,8 @@ User info:
           yield <MoviesSkeleton />;
           let url: string;
           if (query) {
-            url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${
-              process.env.TMDB_API_KEY
-            }&query=${encodeURIComponent(query)}`;
+            url = `https://api.themoviedb.org/3/search/${media_type}?api_key=${process.env.TMDB_API_KEY
+              }&query=${encodeURIComponent(query)}`;
           } else {
             url = `https://api.themoviedb.org/3/trending/${media_type}/${time_window}?api_key=${process.env.TMDB_API_KEY}`;
           }
