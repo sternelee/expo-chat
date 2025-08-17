@@ -98,6 +98,40 @@ export default function Layout() {
       />
 
       <Stack.Screen
+        name="settings/provider"
+        options={{
+          title: "AI Provider",
+          headerTransparent: false,
+          presentation: "modal",
+          headerRight: () => (
+            <Form.Link headerRight href="/settings" dismissTo>
+              <IconSymbol
+                name="xmark.circle.fill"
+                color={AC.systemGray}
+                size={28}
+              />
+            </Form.Link>
+          ),
+        }}
+      />
+      <Stack.Screen
+        name="settings/mcp"
+        options={{
+          title: "MCP Settings",
+          headerTransparent: false,
+          presentation: "modal",
+          headerRight: () => (
+            <Form.Link headerRight href="/settings" dismissTo>
+              <IconSymbol
+                name="xmark.circle.fill"
+                color={AC.systemGray}
+                size={28}
+              />
+            </Form.Link>
+          ),
+        }}
+      />
+      <Stack.Screen
         name="settings/icon"
         sheet
         options={{

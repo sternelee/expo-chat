@@ -148,7 +148,7 @@ export async function onSubmit(message: string, modelId?: string, providerName?:
     };
   }
 
-  const result = await streamUI({
+  const result = streamUI({
     model,
     messages: [
       {
