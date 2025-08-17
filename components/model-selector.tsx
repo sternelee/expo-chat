@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, View, Text, Modal, FlatList, Pressable } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getItem } from "@/lib/async-storage";
 
 const PROVIDER_KEY = "ai_provider";
 
@@ -23,7 +23,7 @@ export default function ModelSelector({ onSelectModel, selectedModel }: { onSele
 
   useEffect(() => {
     const getProvider = async () => {
-      const storedProvider = await AsyncStorage.getItem(PROVIDER_KEY);
+      const storedProvider = await getItem(PROVIDER_KEY);
       setProvider(storedProvider);
     };
     getProvider();

@@ -7,7 +7,6 @@ import {
 } from "ai/rsc";
 import "server-only";
 import { z } from "zod";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -33,10 +32,6 @@ const HTTP_URL_KEY = "mcp_http_url";
 const SSE_URL_KEY = "mcp_sse_url";
 
 const getApiKey = async (providerName: string): Promise<string | null> => {
-  const secureStoreKey = `${providerName.toLowerCase()}_api_key`;
-  let apiKey = await AsyncStorage.getItem(secureStoreKey);
-  if (apiKey) return apiKey;
-
   const envVarMap: Record<string, string> = {
     OpenAI: "OPENAI_API_KEY",
     Google: "GEMINI_API_KEY",
@@ -55,39 +50,38 @@ const getApiKey = async (providerName: string): Promise<string | null> => {
   return null;
 };
 
-async function getProvider(modelId?: string) {
-  const providerName =
-    (await AsyncStorage.getItem(PROVIDER_KEY)) || "OpenAI";
-  const apiKey = await getApiKey(providerName);
+async function getProvider(modelId?: string, providerName?: string, apiKey?: string) {
+  const provider = providerName || "OpenAI";
+  const key = apiKey || await getApiKey(provider);
 
-  if (!apiKey) {
+  if (!key) {
     throw new Error(
-      `API key for provider ${providerName} is required. Please set it in the settings or as an environment variable.`
+      `API key for provider ${provider} is required. Please set it in the settings or as an environment variable.`
     );
   }
 
-  switch (providerName) {
+  switch (provider) {
     case "Anthropic":
-      return anthropic(modelId || "claude-3-haiku-20240307", { apiKey });
+      return anthropic(modelId || "claude-3-haiku-20240307", { apiKey: key });
     case "Google":
-      return google(modelId || "models/gemini-pro", { apiKey });
+      return google(modelId || "models/gemini-pro", { apiKey: key });
     case "Groq":
-      return groq(modelId || "llama3-8b-8192", { apiKey });
+      return groq(modelId || "llama3-8b-8192", { apiKey: key });
     case "Mistral":
-      return mistral(modelId || "open-mistral-7b", { apiKey });
+      return mistral(modelId || "open-mistral-7b", { apiKey: key });
     case "OpenRouter":
-      const openrouter = createOpenRouter({ apiKey });
+      const openrouter = createOpenRouter({ apiKey: key });
       return openrouter(modelId || "google/gemini-flash-1.5");
     case "DeepSeek":
-      const deepseek = createOpenRouter({ apiKey });
+      const deepseek = createOpenRouter({ apiKey: key });
       return deepseek(modelId || "deepseek/deepseek-coder");
     case "OpenAI":
     default:
-      return openai(modelId || "gpt-4o-mini-2024-07-18", { apiKey });
+      return openai(modelId || "gpt-4o-mini-2024-07-18", { apiKey: key });
   }
 }
 
-export async function onSubmit(message: string, modelId?: string) {
+export async function onSubmit(message: string, modelId?: string, providerName?: string, apiKey?: string, httpUrl?: string, sseUrl?: string) {
   "use server";
 
   const aiState = getMutableAIState();
@@ -105,10 +99,7 @@ export async function onSubmit(message: string, modelId?: string) {
   });
 
   const headers = await unstable_headers();
-  const model = await getProvider(modelId);
-
-  const httpUrl = await AsyncStorage.getItem(HTTP_URL_KEY);
-  const sseUrl = await AsyncStorage.getItem(SSE_URL_KEY);
+  const model = await getProvider(modelId, providerName, apiKey);
 
   const mcpClients = [];
   let mcpTools = {};

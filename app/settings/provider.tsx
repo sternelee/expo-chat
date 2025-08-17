@@ -1,7 +1,7 @@
 import * as Form from "@/components/ui/Form";
 import { useEffect, useState } from "react";
 import { Button, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getItem, setItem } from "@/lib/async-storage";
 
 const providers = [
   "OpenAI",
@@ -22,7 +22,7 @@ export default function ProviderSettings() {
 
   useEffect(() => {
     const loadProvider = async () => {
-      const storedProvider = await AsyncStorage.getItem(PROVIDER_KEY);
+      const storedProvider = await getItem(PROVIDER_KEY);
       if (storedProvider) {
         setSelectedProvider(storedProvider);
       }
@@ -33,16 +33,16 @@ export default function ProviderSettings() {
   useEffect(() => {
     const loadApiKey = async () => {
       const key = getApiKeyStoreKey(selectedProvider);
-      const storedApiKey = await AsyncStorage.getItem(key);
+      const storedApiKey = await getItem(key);
       setApiKey(storedApiKey || "");
     };
     loadApiKey();
   }, [selectedProvider]);
 
   const handleSave = async () => {
-    await AsyncStorage.setItem(PROVIDER_KEY, selectedProvider);
+    await setItem(PROVIDER_KEY, selectedProvider);
     const key = getApiKeyStoreKey(selectedProvider);
-    await AsyncStorage.setItem(key, apiKey);
+    await setItem(key, apiKey);
     alert("Settings saved!");
   };
 
