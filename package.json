@@ -76,5 +76,8 @@
     "tailwindcss": "^3.0.0",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "ajv": "6.12.6"
+  }
 }
